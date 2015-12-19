@@ -9,8 +9,8 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
 import org.apache.spark.mllib.regression.LabeledPoint
 import org.apache.spark.mllib.stat.{MultivariateStatisticalSummary, Statistics}
-import org.apache.spark.mllib.tree.DecisionTree
-import org.apache.spark.mllib.tree.model.DecisionTreeModel
+import org.apache.spark.mllib.tree.{RandomForest, DecisionTree}
+import org.apache.spark.mllib.tree.model.{RandomForestModel, DecisionTreeModel}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.mllib.linalg.Vectors
@@ -20,6 +20,14 @@ import org.apache.spark.ml.feature._
 object predict {
 
   def getMetrics(model: DecisionTreeModel, data: RDD[LabeledPoint]):
+  MulticlassMetrics = {
+    val predictionsAndLabels = data.map(example =>
+      (model.predict(example.features), example.label)
+    )
+    new MulticlassMetrics(predictionsAndLabels)
+  }
+
+  def getRFMetrics(model: RandomForestModel, data: RDD[LabeledPoint]):
   MulticlassMetrics = {
     val predictionsAndLabels = data.map(example =>
       (model.predict(example.features), example.label)
@@ -63,13 +71,27 @@ object predict {
     cvData.cache()
     testData.cache()
 
-
+    println("eval by Decision trees")
     val model = DecisionTree.trainClassifier(
-      trainData, 7, Map[Int,Int](), "gini", 4, 100)
-    val metrics = getMetrics(model, cvData)
+      trainData, 7, Map[Int,Int](), "entropy", 20, 300)
+    var metrics = getMetrics(model, cvData)
 
-    //println(metrics.confusionMatrix)
+    println("Precision by decision tree: " + metrics.precision)
+    (0 until 7).map(
+      cat => (metrics.precision(cat), metrics.recall(cat))
+    ).foreach(println)
 
+    println("eval by Random Forest")
+
+     val forest =  RandomForest.trainClassifier(
+      trainData, 7, Map(10 -> 4, 11 -> 40), 20,
+      "auto", "entropy", 30, 300)
+     metrics = getRFMetrics(forest, cvData)
+
+    println("Precision by Random Forest: " + metrics.precision)
+    (0 until 7).map(
+      cat => (metrics.precision(cat), metrics.recall(cat))
+    ).foreach(println)
 
   }
 }
