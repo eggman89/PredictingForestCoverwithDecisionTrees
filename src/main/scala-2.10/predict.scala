@@ -83,6 +83,8 @@ object predict {
 
     println("eval by Random Forest")
 
+
+
      val forest =  RandomForest.trainClassifier(
       trainData, 7, Map(10 -> 4, 11 -> 40), 20,
       "auto", "entropy", 30, 300)
